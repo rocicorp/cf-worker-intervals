@@ -1,0 +1,15 @@
+name = "cf-worker-clocks-test"
+main = "src/index.ts"
+compatibility_date = "2022-06-03"
+
+[durable_objects]
+bindings = [
+  { name = "clocksTestDO", class_name = "ClocksTestDO" },
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["ClocksTestDO"]
+
+#[secrets]
+#DATADOG_API_KEY
