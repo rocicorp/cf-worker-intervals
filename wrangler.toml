@@ -1,13 +1,13 @@
-name = "cf-worker-clocks-test"
+name = "cf-worker-intervals-test"
 main = "src/index.ts"
 compatibility_date = "2022-06-03"
 
 [durable_objects]
 bindings = [
-  { name = "clocksTestDO", class_name = "ClocksTestDO" },
+  { name = "intervalsTestDO", class_name = "IntervalsTestDO" },
 ]
 
 [[migrations]]
 tag = "v1"
-new_classes = ["ClocksTestDO"]
+new_classes = ["IntervalsTestDO"]
 

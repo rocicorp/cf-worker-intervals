@@ -1,14 +1,14 @@
 import indexHTML from "index.html";
 
 export interface Env {
-  clocksTestDO: DurableObjectNamespace;
+  intervalsTestDO: DurableObjectNamespace;
 }
 
 const worker = {
   async fetch(
     request: Request,
     env: Env,
-    ctx: ExecutionContext
+    _ctx: ExecutionContext
   ): Promise<Response> {
     let workerID = globalThis.workerID;
     if (workerID === undefined) {
@@ -17,8 +17,8 @@ const worker = {
     }
     const url = new URL(request.url);
     const forward = () => {
-      return env.clocksTestDO
-        .get(env.clocksTestDO.idFromName("clock-tests-singleton"))
+      return env.intervalsTestDO
+        .get(env.intervalsTestDO.idFromName("interval-tests-singleton"))
         .fetch(request);
     };
     switch (url.pathname) {
@@ -28,9 +28,6 @@ const worker = {
             "content-type": "text/html;charset=UTF-8",
           },
         });
-      case "/worker-post":
-        return handlePost(request, workerID, ctx);
-      case "/do-post":
       case "/do-websocket":
         return forward();
     }
@@ -38,7 +35,7 @@ const worker = {
   },
 };
 
-class ClocksTestDO implements DurableObject {
+class IntervalsTestDO implements DurableObject {
   private readonly _doID: string;
 
   constructor() {
@@ -46,42 +43,14 @@ class ClocksTestDO implements DurableObject {
   }
 
   async fetch(request: Request): Promise<Response> {
+    console.log("IntervalsTestDO fetch", request.url);
     const url = new URL(request.url);
     switch (url.pathname) {
-      case "/do-post":
-        return handlePost(request, this._doID);
       case "/do-websocket":
         return handleWebSocketConnect(request, this._doID);
     }
     return new Response("Not Found", { status: 404 });
   }
-}
-
-async function handlePost(
-  request: Request,
-  serverID: string,
-  ctx?: ExecutionContext
-): Promise<Response> {
-  const url = new URL(request.url);
-  const work = parseInt(url.searchParams.get("work") ?? "0");
-  const { i, pageTimestamp } = await request.json<{
-    i: number;
-    pageTimestamp: number;
-  }>();
-  if (ctx) {
-    const promise = new Promise((resolve) => {
-      setTimeout(() => {
-        doWork(work);
-        resolve(undefined);
-      }, 1);
-    });
-    ctx.waitUntil(promise);
-  } else {
-    setTimeout(() => doWork(work), 1);
-  }
-  return new Response(
-    createResponseBody(serverID, i, pageTimestamp, Date.now())
-  );
 }
 
 async function handleWebSocketConnect(
@@ -92,26 +61,29 @@ async function handleWebSocketConnect(
     return new Response("expected websocket", { status: 400 });
   }
   const url = new URL(request.url);
+  const work = parseInt(url.searchParams.get("work") ?? "0");
   const pair = new WebSocketPair();
   const ws = pair[1];
-  const work = parseInt(url.searchParams.get("work") ?? "0");
   ws.accept();
   ws.send("connected");
-  ws.addEventListener("message", async (event) => {
-    const { i, pageTimestamp } = JSON.parse(event.data.toString());
-    ws.send(createResponseBody(serverID, i, pageTimestamp, Date.now()));
-    setTimeout(() => doWork(work), 1);
-  });
+  let i = 0;
+  const intervalID = setInterval(() => {
+    console.log("interval tick", i);
+    ws.send(createResponseBody(serverID, i++, Date.now()));
+    if (i++ > 100) {
+      clearInterval(intervalID);
+    }
+    doWork(work);
+  }, 250);
   return new Response(null, { status: 101, webSocket: pair[0] });
 }
 
 function createResponseBody(
   serverID: string,
   i: number,
-  pageTimestamp: number,
   serverTimestamp: number
 ) {
-  return JSON.stringify({ serverID, i, pageTimestamp, serverTimestamp });
+  return JSON.stringify({ serverID, i, serverTimestamp });
 }
 
 function doWork(work: number) {
@@ -122,4 +94,4 @@ function doWork(work: number) {
   return result;
 }
 
-export { worker as default, ClocksTestDO };
+export { worker as default, IntervalsTestDO };
