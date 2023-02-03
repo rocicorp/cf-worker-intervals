@@ -1,6 +1,6 @@
 import indexHTML from "index.html";
 
-const INTERVAL_MS = 1000;
+const INTERVAL_MS = 250;
 
 export interface Env {
   intervalsTestDO: DurableObjectNamespace;
