@@ -1,7 +1,6 @@
-# cf-worker-clocks
+# cf-worker-intervals
 
-A test Cloudflare worker and durable object which demonstrates that durable object clocks lose time 
-over a series of requests, while worker clocks do not.
+Test Cloudflare durable object interval scheduling
 
 ## Running Locally
 ```bash
