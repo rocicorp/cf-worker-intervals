@@ -1,6 +1,6 @@
 import indexHTML from "index.html";
 
-const INTERVAL_MS = 250;
+const INTERVAL_MS = 1000;
 
 export interface Env {
   intervalsTestDO: DurableObjectNamespace;
@@ -64,7 +64,7 @@ class IntervalsTestDO implements DurableObject {
     this._i++;
     console.log("alarm tick", this._i);
     this._ws?.send(createResponseBody(this._doID, this._i, Date.now()));
-    if (this._i >= 100) {
+    if (this._i >= 50) {
       this._i = 0;
       this._startTimestamp = 0;
       this._ws?.close();
@@ -88,19 +88,36 @@ class IntervalsTestDO implements DurableObject {
     const ws = pair[1];
     ws.accept();
     ws.send("connected");
-    let i = 0;
     switch (test) {
       case "do-interval": {
+        let i = 0;
         const intervalID = setInterval(() => {
           i++;
           console.log("interval tick", i);
           ws.send(createResponseBody(this._doID, i, Date.now()));
-          if (i >= 100) {
+          if (i >= 50) {
             clearInterval(intervalID);
             ws.close();
+            return;
           }
           doWork(work);
         }, INTERVAL_MS);
+        break;
+      }
+      case "do-timeout": {
+        let i = 0;
+        const timeoutHandler = () => {
+          i++;
+          console.log("timeout tick", i);
+          ws.send(createResponseBody(this._doID, i, Date.now()));
+          if (i >= 50) {
+            ws.close();
+            return;
+          }
+          setTimeout(timeoutHandler, INTERVAL_MS);
+          doWork(work);
+        };
+        setTimeout(timeoutHandler, INTERVAL_MS);
         break;
       }
       case "do-alarm": {

@@ -8,7 +8,7 @@
     <h1>CF Durable Object Interval Tests</h1>
     <div>
       <p>
-        Test if setInterval loses time.
+        Test if setInterval/setTimeout/alarm lose time.
       </p>
       <form action="" method="get">
         <p>Select test:</p>
@@ -21,11 +21,18 @@
         <label for="do-interval">do-interval</label>
         <input
           type="radio"
+          id="test-do-timeout"
+          name="test"
+          value="do-timeout"
+        />
+        <label for="do-timeout">do-timeout</label>
+        <input
+          type="radio"
           id="test-do-alarm"
           name="test"
           value="do-alarm"
         />
-        <label for="do-alarml">do-alarm</label>
+        <label for="do-alarm">do-alarm</label>
 
         <p>Select work per request/message:</p>
         <input type="radio" id="work-0" name="work" value="0" />
@@ -44,6 +51,10 @@
         <label for="work-50000">75000</label>
         <input type="radio" id="work-100000" name="work" value="100000" />
         <label for="work-100000">100000</label>
+        <input type="radio" id="work-150000" name="work" value="150000" />
+        <label for="work-150000">150000</label>
+        <input type="radio" id="work-200000" name="work" value="200000" />
+        <label for="work-200000">200000</label>
 
         <p></p>
         <br /><input type="submit" value="Submit" />
@@ -51,7 +62,7 @@
     <pre id="log"></pre>
 
     <script>
-      const INTERVAL_MS = 250;
+      const INTERVAL_MS = 1000;
       const DEFAULT_TEST_CASE = "do-interval";
       const DEFAULT_WORK = 0;
       const params = new URL(location.href).searchParams;
