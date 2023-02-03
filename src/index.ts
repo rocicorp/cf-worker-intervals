@@ -69,8 +69,9 @@ async function handleWebSocketConnect(
   let i = 0;
   const intervalID = setInterval(() => {
     console.log("interval tick", i);
-    ws.send(createResponseBody(serverID, i++, Date.now()));
-    if (i++ > 100) {
+    i++;
+    ws.send(createResponseBody(serverID, i, Date.now()));
+    if (i >= 100) {
       clearInterval(intervalID);
     }
     doWork(work);

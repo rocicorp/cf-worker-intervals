@@ -10,7 +10,7 @@
       <p>
         Test if setInterval loses time.
       </p>
-            <form action="" method="get">
+      <form action="" method="get">
         <p>Select test:</p>
         <input
           type="radio"
@@ -38,6 +38,7 @@
     <pre id="log"></pre>
 
     <script>
+      const INTERVAL_MS = 250;
       const DEFAULT_TEST_CASE = "do-websocket";
       const DEFAULT_WORK = 0;
       const params = new URL(location.href).searchParams;
@@ -55,16 +56,31 @@
         logDiv.prepend(msgDiv);
       }
 
-      function logResponse(responseData, lastServerTimestamp, timestamp, lastTimestamp) {
+      function logResponse(responseData, startTimestamp, lastServerTimestamp, timestamp, timestamps) {
+        const lastTimestamp = timestamps[timestamps.length - 1];
         const {i, serverTimestamp, serverID} = responseData;
+        const idealTimestamp = startTimestamp + (i * INTERVAL_MS);
+        let sumOfDeltaDiffsFromIdeal = timestamp - lastTimestamp - INTERVAL_MS;
+        for (let i = 1; i < timestamps.length; i++) {
+          const cur = timestamps[i];
+          const prev = timestamps[i-1];
+          const delta = cur - prev;
+          sumOfDeltaDiffsFromIdeal += delta - INTERVAL_MS;
+        }
         log(
           "Interval test",
-          "| serverID",
-          serverID,
           "| i",
           i.toString().padStart(3),
-          "| timestamp - lastTimestamp",
+          "| timestamp - lastTimestamp (delta)",
           (timestamp - lastTimestamp).toString().padStart(5),
+          "| delta - idealDelta",
+          (timestamp - lastTimestamp - 250).toString().padStart(5),
+          "| timestamp - idealTimestamp",
+          (timestamp - idealTimestamp).toString().padStart(5),
+          "| sum(delta - idealDelta)",
+           sumOfDeltaDiffsFromIdeal.toString().padStart(5),
+          "| avg(delta - idealDelta)",
+          Math.ceil(sumOfDeltaDiffsFromIdeal / timestamps.length).toString().padStart(5),
           "| timestamp - serverTimestamp",
           (timestamp - serverTimestamp).toString().padStart(5),
           "| serverTimestamp - lastServerTimestamp",
@@ -77,6 +93,8 @@
           serverTimestamp,
           "| lastServerTimestamp",
           lastServerTimestamp,
+          "| serverID",
+          serverID,
         );
       }
       
@@ -87,18 +105,20 @@
         url.search = '';
         url.searchParams.set('work', work);
         const ws = new WebSocket(url.toString());
-        let lastTimestamp = 0;
+        let timestamps = [];
         let lastServerTimestamp = 0;
+        let startTimestamp = 0;
         ws.addEventListener("message", async (e) => {
           if (e.data === "connected") {
             log('Connected');
-            lastTimestamp = Date.now();
-            lastServerTimestamp = lastTimestamp;
+            startTimestamp = Date.now();
+            timestamps.push(startTimestamp);
+            lastServerTimestamp = startTimestamp;
           } else if (typeof e.data === "string") {
             const timestamp = Date.now();
             const data = JSON.parse(e.data);
-            logResponse(data, lastServerTimestamp, timestamp, lastTimestamp);
-            lastTimestamp = timestamp;
+            logResponse(data, startTimestamp, lastServerTimestamp, timestamp, timestamps);
+            timestamps.push(timestamp);
             lastServerTimestamp = data.serverTimestamp;
           }
         });
