@@ -1,5 +1,7 @@
 import indexHTML from "index.html";
 
+const INTERVAL_MS = 250;
+
 export interface Env {
   intervalsTestDO: DurableObjectNamespace;
 }
@@ -28,7 +30,7 @@ const worker = {
             "content-type": "text/html;charset=UTF-8",
           },
         });
-      case "/do-websocket":
+      case "/connect":
         return forward();
     }
     return new Response("Not Found", { status: 404 });
@@ -37,46 +39,81 @@ const worker = {
 
 class IntervalsTestDO implements DurableObject {
   private readonly _doID: string;
+  private readonly _state: DurableObjectState;
+  private _ws: WebSocket | undefined;
+  private _work: number = 0;
+  private _startTimestamp: number = 0;
+  private _i: number = 0;
 
-  constructor() {
+  constructor(state: DurableObjectState) {
     this._doID = crypto.randomUUID();
+    this._state = state;
   }
 
   async fetch(request: Request): Promise<Response> {
     console.log("IntervalsTestDO fetch", request.url);
     const url = new URL(request.url);
     switch (url.pathname) {
-      case "/do-websocket":
-        return handleWebSocketConnect(request, this._doID);
+      case "/connect":
+        return this.handleWebSocketConnect(request);
     }
     return new Response("Not Found", { status: 404 });
   }
-}
 
-async function handleWebSocketConnect(
-  request: Request,
-  serverID: string
-): Promise<Response> {
-  if (request.headers.get("Upgrade") !== "websocket") {
-    return new Response("expected websocket", { status: 400 });
-  }
-  const url = new URL(request.url);
-  const work = parseInt(url.searchParams.get("work") ?? "0");
-  const pair = new WebSocketPair();
-  const ws = pair[1];
-  ws.accept();
-  ws.send("connected");
-  let i = 0;
-  const intervalID = setInterval(() => {
-    console.log("interval tick", i);
-    i++;
-    ws.send(createResponseBody(serverID, i, Date.now()));
-    if (i >= 100) {
-      clearInterval(intervalID);
+  async alarm(): Promise<void> {
+    this._i++;
+    console.log("alarm tick", this._i);
+    this._ws?.send(createResponseBody(this._doID, this._i, Date.now()));
+    if (this._i >= 100) {
+      this._i = 0;
+      this._startTimestamp = 0;
+      this._ws?.close();
+      this._ws = undefined;
+    } else {
+      this._state.storage.setAlarm(
+        this._startTimestamp + this._i * INTERVAL_MS + INTERVAL_MS
+      );
+      doWork(this._work);
     }
-    doWork(work);
-  }, 250);
-  return new Response(null, { status: 101, webSocket: pair[0] });
+  }
+
+  async handleWebSocketConnect(request: Request): Promise<Response> {
+    if (request.headers.get("Upgrade") !== "websocket") {
+      return new Response("expected websocket", { status: 400 });
+    }
+    const url = new URL(request.url);
+    const work = parseInt(url.searchParams.get("work") ?? "0");
+    const test = url.searchParams.get("test") ?? "do-interval";
+    const pair = new WebSocketPair();
+    const ws = pair[1];
+    ws.accept();
+    ws.send("connected");
+    let i = 0;
+    switch (test) {
+      case "do-interval": {
+        const intervalID = setInterval(() => {
+          i++;
+          console.log("interval tick", i);
+          ws.send(createResponseBody(this._doID, i, Date.now()));
+          if (i >= 100) {
+            clearInterval(intervalID);
+            ws.close();
+          }
+          doWork(work);
+        }, INTERVAL_MS);
+        break;
+      }
+      case "do-alarm": {
+        this._ws = ws;
+        this._startTimestamp = Date.now();
+        this._i = 0;
+        this._work = work;
+        this._state.storage.setAlarm(this._startTimestamp + INTERVAL_MS);
+      }
+    }
+
+    return new Response(null, { status: 101, webSocket: pair[0] });
+  }
 }
 
 function createResponseBody(

@@ -14,11 +14,18 @@
         <p>Select test:</p>
         <input
           type="radio"
-          id="test-do-websocket"
+          id="test-do-interval"
           name="test"
-          value="do-websocket"
+          value="do-interval"
         />
-        <label for="do-websocket">do-websocket</label>
+        <label for="do-interval">do-interval</label>
+        <input
+          type="radio"
+          id="test-do-alarm"
+          name="test"
+          value="do-alarm"
+        />
+        <label for="do-alarml">do-alarm</label>
 
         <p>Select work per request/message:</p>
         <input type="radio" id="work-0" name="work" value="0" />
@@ -39,7 +46,7 @@
 
     <script>
       const INTERVAL_MS = 250;
-      const DEFAULT_TEST_CASE = "do-websocket";
+      const DEFAULT_TEST_CASE = "do-interval";
       const DEFAULT_WORK = 0;
       const params = new URL(location.href).searchParams;
       const testCase = params.get("test") ?? DEFAULT_TEST_CASE;
@@ -68,7 +75,7 @@
           sumOfDeltaDiffsFromIdeal += delta - INTERVAL_MS;
         }
         log(
-          "Interval test",
+          testCase,
           "| i",
           i.toString().padStart(3),
           "| timestamp - lastTimestamp (delta)",
@@ -98,12 +105,13 @@
         );
       }
       
-      function testDoWebSocket() {
+      function connect() {
         const url = new URL(location.href);
         url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-        url.pathname = `/do-websocket`;
+        url.pathname = `/connect`;
         url.search = '';
         url.searchParams.set('work', work);
+        url.searchParams.set('test', testCase);
         const ws = new WebSocket(url.toString());
         let timestamps = [];
         let lastServerTimestamp = 0;
@@ -126,7 +134,7 @@
           log("web socket close", e);
         });
       }
-      testDoWebSocket();
+      connect();
     </script>
   </body>
 </html>
